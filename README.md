@@ -8,7 +8,7 @@ It never changes OCI IAM resources. OCI remains the authority for effective runt
 
 - Collect classic IAM and Identity Domains evidence: tenancy metadata, compartment hierarchy, users, groups, memberships, domains, dynamic-group rules, policies, applications, and grants.
 - Explore a focused **Access Map** around one or more subjects, with pan, zoom, layouts, an expandable tree, and PNG/PDF/JSON exports.
-- Review inventory, user access evidence, policy statements, duplicate candidates, and drift between collections.
+- Review inventory, user access evidence, policy statements, duplicate candidates, and drift between local or durable Object Storage collections.
 - Build inventory or comparison reports for zero, one, or multiple users; download filtered evidence as Excel, CSV, JSON, Markdown and PDF where applicable.
 - Use **Ask IAM** for multi-turn, evidence-first questions. It retrieves the selected snapshot before asking OCI Generative AI for a concise narrative, with a deterministic fallback.
 - Switch tenancies and select durable historical collections from Object Storage.
@@ -36,7 +36,7 @@ Successful web collections are written to the local working cache and archived t
 tenancies/<tenancy-name-and-id>/<collection-date>/snapshot-<hash>.json
 ```
 
-The local cache keeps the newest five collections per tenancy for fast use. The sidebar’s **Object Storage collections** picker can activate any archived snapshot without removing the local retention limit. Local runs use the configured OCI user principal; OCI Generative AI Hosted Applications use their resource principal.
+The local cache keeps the newest five collections per tenancy for fast use. The sidebar’s **Object Storage collections** picker can activate any archived snapshot without removing the local retention limit. IAM Drift also lists same-tenancy archived collections and reads the selected pair directly from the bucket, so comparisons survive hosted-runtime restarts. Local runs use the configured OCI user principal; OCI Generative AI Hosted Applications use their resource principal with bucket-scoped Object Storage policy.
 
 ## Get started
 

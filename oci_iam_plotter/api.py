@@ -86,6 +86,13 @@ class BucketSnapshotSelection(BaseModel):
     object_name: str = Field(min_length=8, max_length=1024)
 
 
+class DriftCollectionSelection(BaseModel):
+    """Two snapshot references selected from local cache or Object Storage."""
+
+    baseline: str = Field(min_length=3, max_length=2048)
+    current: str = Field(min_length=3, max_length=2048)
+
+
 app = FastAPI(title="OCI IAM Plotter", docs_url=None, redoc_url=None)
 app.add_middleware(SessionMiddleware, secret_key=__import__("secrets").token_urlsafe(32), https_only=False)
 app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")
@@ -135,6 +142,46 @@ def loaded_snapshot(request: Request):
 def selected_tenancy_records(request: Request):
     record = selected_snapshot_record(request)
     return [item for item in STORE.list_history() if item.tenancy_id == record.tenancy_id]
+
+
+def drift_collection_sources(request: Request) -> tuple[list[dict], str | None]:
+    """Return comparison choices for the active tenancy, including durable archive items.
+
+    Drift must survive a hosted runtime restart, so archive objects are read directly
+    rather than requiring an operator to first restore each one to the local cache.
+    """
+    active = selected_snapshot_record(request)
+    tenancy_id = active.tenancy_id
+    records = [{"id": f"local:{index}", "source": "local", "index": index,
+                "collected_at": item.collected_at, "source_hash": item.source_hash}
+               for index, item in enumerate(selected_tenancy_records(request))]
+    archive_error = None
+    if OBJECT_ARCHIVE:
+        try:
+            archived = [item for item in OBJECT_ARCHIVE.list() if item.tenancy_id == tenancy_id]
+            # Prefer an archive reference when it represents the same immutable
+            # collection; it remains usable even after local cache pruning.
+            local_keys = {(item["collected_at"], item["source_hash"]) for item in records}
+            records.extend({"id": f"bucket:{item.object_name}", "source": "bucket",
+                            "object_name": item.object_name, "collected_at": item.collected_at,
+                            "source_hash": item.source_hash}
+                           for item in archived
+                           if (item.collected_at, item.source_hash) not in local_keys)
+        except Exception as exc:
+            archive_error = f"Unable to list Object Storage collections: {exc}"
+    return sorted(records, key=lambda item: item["collected_at"], reverse=True), archive_error
+
+
+def load_drift_collection(request: Request, collection_id: str) -> Snapshot:
+    records, _ = drift_collection_sources(request)
+    record = next((item for item in records if item["id"] == collection_id), None)
+    if not record:
+        raise HTTPException(400, "Select collections available for the active tenancy.")
+    if record["source"] == "bucket":
+        if not OBJECT_ARCHIVE:  # defensive; only bucket records are emitted above
+            raise HTTPException(503, "Object Storage archive is disabled.")
+        return Snapshot.from_dict(OBJECT_ARCHIVE.load(record["object_name"]))
+    return STORE.load(selected_tenancy_records(request)[record["index"]].path)
 
 
 def excel_rows(rows: list[dict], filename: str, sheet_name: str = "Evidence") -> Response:
@@ -494,6 +541,14 @@ def history(request: Request) -> dict:
                          for index, item in enumerate(records)]}
 
 
+@app.get("/api/drift/collections")
+def drift_collections(request: Request) -> dict:
+    """List local and durable same-tenancy collections usable by IAM Drift."""
+    require_login(request)
+    records, error = drift_collection_sources(request)
+    return {"records": records, "error": error}
+
+
 @app.get("/api/drift")
 def drift(request: Request, baseline: int, current: int) -> dict:
     require_login(request)
@@ -504,6 +559,23 @@ def drift(request: Request, baseline: int, current: int) -> dict:
         return snapshot_drift(STORE.load(records[baseline].path), STORE.load(records[current].path))
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+
+
+@app.post("/api/drift")
+def drift_from_collections(request: Request, body: DriftCollectionSelection) -> dict:
+    """Compare chosen local/Object Storage snapshots without cache restoration."""
+    require_login(request)
+    if body.baseline == body.current:
+        raise HTTPException(400, "Choose two different retained collections.")
+    try:
+        return snapshot_drift(load_drift_collection(request, body.baseline),
+                              load_drift_collection(request, body.current))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(502, f"Unable to load a selected Object Storage collection: {exc}") from exc
 
 
 @app.post("/api/report")

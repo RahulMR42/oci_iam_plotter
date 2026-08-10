@@ -12,7 +12,14 @@ The application is deployed only as an OCI Generative AI Hosted Application. It 
 
 ## Required IAM access
 
-The local developer principal needs permission to push to the selected OCIR repository and manage the hosted application/deployment. The hosted application resource-principal dynamic group needs read access to the bucket and read/write object permissions in the bucket compartment. It also needs access to the configured Vault secret and OCI Generative AI model/project according to your tenancy policy.
+The local developer principal needs permission to push to the selected OCIR repository and manage the hosted application/deployment. The hosted application resource-principal dynamic group needs read access to `bucket_iam_plotter` and read/write object permissions in the bucket compartment. The deployed `oci-iam-plotter-hosted-runtime` policy grants:
+
+```text
+Allow dynamic-group oci-iam-plotter-hosted-runtime to read buckets in compartment id <bucket-compartment> where all {target.bucket.name='bucket_iam_plotter'}
+Allow dynamic-group oci-iam-plotter-hosted-runtime to manage objects in compartment id <bucket-compartment> where all {target.bucket.name='bucket_iam_plotter'}
+```
+
+It also needs access to the configured Vault secret and OCI Generative AI model/project according to your tenancy policy. Resource-principal token updates can take time to propagate after an IAM policy or dynamic-group change.
 
 ## Publish a release
 
@@ -24,7 +31,7 @@ CONTAINER_CLI=podman ./deploy/deploy-hosted-application.sh
 
 The script builds a Linux AMD64 image, pushes it to OCIR, updates the hosted application environment, adds a deployment artifact, and activates it. OCI limits a deployment to 20 artifacts; the script removes only the oldest inactive artifact when the limit is reached.
 
-Runtime settings are defined in [deploy/hosted-runtime-config.json](../deploy/hosted-runtime-config.json). It enables `OCI_IAM_PLOTTER_HOSTED=true`, which selects resource-principal Object Storage authentication.
+Runtime settings are defined in [deploy/hosted-runtime-config.json](../deploy/hosted-runtime-config.json). It enables `OCI_IAM_PLOTTER_HOSTED=true`, which selects resource-principal Object Storage authentication. The archive bucket, namespace, and Object Storage region are explicit so the SDK can construct the regional endpoint without relying on runtime metadata discovery.
 
 ## Verify a release
 

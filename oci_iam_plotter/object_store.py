@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 import hashlib
 import io
 import json
+import os
 import re
 from typing import TYPE_CHECKING, Any
 
@@ -45,12 +46,13 @@ class ObjectSnapshotArchive:
     """Read/write snapshots using API-key (local) or resource-principal (hosted) auth."""
 
     def __init__(self, bucket_name: str, config_file: str, profile: str, use_resource_principal: bool = False,
-                 namespace: str = "", client: Any | None = None) -> None:
+                 namespace: str = "", region: str = "", client: Any | None = None) -> None:
         self.bucket_name = bucket_name
         self.config_file = config_file
         self.profile = profile
         self.use_resource_principal = use_resource_principal
         self._namespace = namespace
+        self.region = region
         self._client = client
 
     @classmethod
@@ -58,7 +60,8 @@ class ObjectSnapshotArchive:
         if not settings.object_storage_enabled or not settings.object_storage_bucket:
             return None
         return cls(settings.object_storage_bucket, str(settings.oci_config_file), settings.oci_config_profile,
-                   settings.object_storage_resource_principal, settings.object_storage_namespace)
+                   settings.object_storage_resource_principal, settings.object_storage_namespace,
+                   settings.object_storage_region)
 
     def _oci_client(self):
         if self._client is not None:
@@ -66,7 +69,18 @@ class ObjectSnapshotArchive:
         import oci
         if self.use_resource_principal:
             signer = oci.auth.signers.get_resource_principals_signer()
-            self._client = oci.object_storage.ObjectStorageClient(config={}, signer=signer)
+            # ObjectStorageClient needs a region or endpoint even when requests are
+            # signed with a resource principal. Prefer the explicit app setting,
+            # then standard OCI runtime variables, then the signer metadata.
+            region = (self.region or os.getenv("OCI_REGION", "") or
+                      os.getenv("OCI_RESOURCE_PRINCIPAL_REGION", "") or
+                      getattr(signer, "region", ""))
+            if not region:
+                raise RuntimeError(
+                    "Object Storage region is not configured. Set "
+                    "OCI_IAM_PLOTTER_OBJECT_STORAGE_REGION."
+                )
+            self._client = oci.object_storage.ObjectStorageClient(config={"region": region}, signer=signer)
         else:
             config = oci.config.from_file(self.config_file, self.profile)
             self._client = oci.object_storage.ObjectStorageClient(config)

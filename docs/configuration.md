@@ -11,7 +11,8 @@
 | `OCI_CONFIG_FILE` | `~/.oci/config` | OCI SDK config for local Object Storage access |
 | `OCI_CONFIG_PROFILE` | `DEFAULT` | OCI SDK profile |
 | `OCI_IAM_PLOTTER_OBJECT_STORAGE_BUCKET` | `bucket_iam_plotter` | Durable snapshot archive bucket |
-| `OCI_IAM_PLOTTER_OBJECT_STORAGE_NAMESPACE` | auto-detected | Object Storage namespace override |
+| `OCI_IAM_PLOTTER_OBJECT_STORAGE_NAMESPACE` | `ax6ymbvwiimc` in hosted runtime | Object Storage namespace; explicit in hosted runtime to avoid namespace-discovery permission dependency |
+| `OCI_IAM_PLOTTER_OBJECT_STORAGE_REGION` | `us-chicago-1` in hosted runtime | Region used to construct the Object Storage endpoint for the resource principal |
 | `OCI_IAM_PLOTTER_OBJECT_STORAGE_ENABLED` | `true` | Disable only for local-only snapshots |
 | `OCI_IAM_PLOTTER_HOSTED` | unset | Select OCI resource-principal Object Storage auth |
 | `OCI_GENAI_PROJECT_OCID` | configured project | OCI Generative AI project |

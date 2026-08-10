@@ -6,6 +6,8 @@
     "OCI_IAM_PLOTTER_CACHE_DIR": "/tmp/iam-plotter-cache",
     "OCI_IAM_PLOTTER_HOSTED": "true",
     "OCI_IAM_PLOTTER_OBJECT_STORAGE_BUCKET": "bucket_iam_plotter",
+    "OCI_IAM_PLOTTER_OBJECT_STORAGE_NAMESPACE": "ax6ymbvwiimc",
+    "OCI_IAM_PLOTTER_OBJECT_STORAGE_REGION": "us-chicago-1",
     "OCI_IAM_PLOTTER_OBJECT_STORAGE_ENABLED": "true",
     "OCI_IAM_PLOTTER_HOST": "0.0.0.0",
     "OCI_IAM_PLOTTER_PASSWORD_SECRET_ID": "ocid1.vaultsecret.oc1.us-chicago-1.amaaaaaafigrwqyayostjzfgie5qtp6ztybaeuofxqhgink3qbsku5wrt3rq"

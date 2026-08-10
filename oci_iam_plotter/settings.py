@@ -24,6 +24,7 @@ class Settings:
     oci_config_profile: str
     object_storage_bucket: str
     object_storage_namespace: str
+    object_storage_region: str
     object_storage_enabled: bool
     object_storage_resource_principal: bool
 
@@ -40,6 +41,11 @@ class Settings:
             oci_config_profile=os.getenv("OCI_CONFIG_PROFILE", "DEFAULT").strip() or "DEFAULT",
             object_storage_bucket=os.getenv("OCI_IAM_PLOTTER_OBJECT_STORAGE_BUCKET", "bucket_iam_plotter").strip(),
             object_storage_namespace=os.getenv("OCI_IAM_PLOTTER_OBJECT_STORAGE_NAMESPACE", "").strip(),
+            # Hosted resource principals do not always expose a region in the SDK
+            # client configuration. Keep it explicit for a deterministic Object
+            # Storage endpoint, while accepting OCI's standard region variable.
+            object_storage_region=(os.getenv("OCI_IAM_PLOTTER_OBJECT_STORAGE_REGION", "").strip()
+                                   or os.getenv("OCI_REGION", "").strip()),
             object_storage_enabled=os.getenv("OCI_IAM_PLOTTER_OBJECT_STORAGE_ENABLED", "true").lower() not in {"0", "false", "no"},
             object_storage_resource_principal=(os.getenv("OCI_IAM_PLOTTER_HOSTED", "").lower() in {"1", "true", "yes"}
                                                or bool(os.getenv("OCI_RESOURCE_PRINCIPAL_VERSION"))),
