@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.iam-plotter-cache/
+.iam-plotter-cache-live/
+.iam-plotter-cache-live-v2/
+.oci-genai-api-key
+.iam-plotter-password
+.env
+.env.*
+!.env.example
+artifacts/live-*
+dist/
+build/
+*.egg-info/

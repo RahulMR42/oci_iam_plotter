@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "tenancy_id": "ocid1.tenancy.oc1..sample",
+  "collected_at": "2026-08-04T00:00:00+00:00",
+  "source_hash": "sample",
+  "entities": [
+    {"id": "ocid1.tenancy.oc1..sample", "name": "SampleTenancy", "kind": "tenancy", "description": null, "compartment_id": null, "lifecycle_state": "ACTIVE", "metadata": {}},
+    {"id": "user-1", "name": "alice", "kind": "user", "description": null, "compartment_id": "ocid1.tenancy.oc1..sample", "lifecycle_state": "ACTIVE", "metadata": {}},
+    {"id": "group-1", "name": "Auditors", "kind": "group", "description": null, "compartment_id": "ocid1.tenancy.oc1..sample", "lifecycle_state": "ACTIVE", "metadata": {}},
+    {"id": "policy-1", "name": "AuditPolicy", "kind": "policy", "description": null, "compartment_id": "ocid1.tenancy.oc1..sample", "lifecycle_state": "ACTIVE", "metadata": {}}
+  ],
+  "memberships": [{"user_id": "user-1", "group_id": "group-1"}],
+  "statements": [{"id": "policy-1#0", "policy_id": "policy-1", "text": "Allow group Auditors to read all-resources in tenancy", "index": 0}]
+}

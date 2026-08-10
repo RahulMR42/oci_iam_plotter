@@ -1,0 +1,19 @@
+/* Compact, consistent actions across the portal. */
+button {
+  min-height: 32px;
+  padding: .42rem .68rem;
+  border-radius: 7px;
+  font-size: .82rem;
+  font-weight: 650;
+  letter-spacing: .01em;
+  box-shadow: none;
+}
+
+button:hover:not(:disabled) { background: #aa3528; }
+button:focus-visible { outline: 3px solid #f5a623; outline-offset: 2px; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+button.secondary:hover:not(:disabled) { background: #e3dcd6; }
+nav button { min-height: 30px; padding: .4rem .56rem; font-size: .78rem; }
+.chat-launch { min-height: 34px; padding: .44rem .75rem; border-radius: 8px; }
+.map-tools button { min-height: 30px; padding: .32rem .52rem; }
+.button-row { display: flex; gap: .45rem; align-items: center; }

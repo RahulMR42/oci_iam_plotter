@@ -1,0 +1,61 @@
+{
+  "nodes": [
+    {
+      "id": "ocid1.tenancy.oc1..sample",
+      "label": "SampleTenancy",
+      "kind": "tenancy"
+    },
+    {
+      "id": "user-1",
+      "label": "alice",
+      "kind": "user"
+    },
+    {
+      "id": "group-1",
+      "label": "Auditors",
+      "kind": "group"
+    },
+    {
+      "id": "policy-1",
+      "label": "AuditPolicy",
+      "kind": "policy"
+    },
+    {
+      "id": "policy-1#0",
+      "label": "Allow group Auditors to read all-resources in tenancy",
+      "kind": "policy_statement"
+    }
+  ],
+  "edges": [
+    {
+      "source": "ocid1.tenancy.oc1..sample",
+      "target": "user-1",
+      "relation": "CONTAINS"
+    },
+    {
+      "source": "ocid1.tenancy.oc1..sample",
+      "target": "group-1",
+      "relation": "CONTAINS"
+    },
+    {
+      "source": "ocid1.tenancy.oc1..sample",
+      "target": "policy-1",
+      "relation": "CONTAINS"
+    },
+    {
+      "source": "user-1",
+      "target": "group-1",
+      "relation": "MEMBER_OF"
+    },
+    {
+      "source": "policy-1",
+      "target": "policy-1#0",
+      "relation": "HAS_STATEMENT"
+    },
+    {
+      "source": "policy-1#0",
+      "target": "group-1",
+      "relation": "APPLIES_TO"
+    }
+  ]
+}

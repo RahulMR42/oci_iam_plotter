@@ -1,0 +1,41 @@
+services:
+  oci-iam-plotter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: oci-iam-plotter:local
+    ports:
+      - "127.0.0.1:${OCI_IAM_PLOTTER_PORT:-8501}:8501"
+    environment:
+      OCI_IAM_PLOTTER_HOST: 0.0.0.0
+      OCI_IAM_PLOTTER_PORT: 8501
+      OCI_IAM_PLOTTER_USE_PROXY: ${OCI_IAM_PLOTTER_USE_PROXY:-0}
+      OCI_IAM_PLOTTER_CACHE_DIR: /app/data/cache
+      OCI_IAM_PLOTTER_USERNAME: ${OCI_IAM_PLOTTER_USERNAME:-oci}
+      OCI_IAM_PLOTTER_PASSWORD: ${OCI_IAM_PLOTTER_PASSWORD:-}
+      OCI_IAM_PLOTTER_PASSWORD_FILE: /app/data/.iam-plotter-password
+      OCI_CONFIG_FILE: /home/plotter/.oci/config
+      OCI_CONFIG_PROFILE: ${OCI_CONFIG_PROFILE:-DEFAULT}
+      OCI_GENAI_PROJECT_OCID: ${OCI_GENAI_PROJECT_OCID:-ocid1.generativeaiproject.oc1.us-chicago-1.amaaaaaafigrwqyaszdh7vv7uymklym7vjid2dac4niv6pxokjd54hve4l7a}
+      OCI_GENAI_MODEL_ID: ${OCI_GENAI_MODEL_ID:-xai.grok-4}
+      OCI_GENAI_BASE_URL: ${OCI_GENAI_BASE_URL:-https://inference.generativeai.us-chicago-1.oci.oraclecloud.com/openai/v1}
+      OCI_GENAI_API_KEY: ${OCI_GENAI_API_KEY:-}
+    volumes:
+      - iam-plotter-data:/app/data
+      - ${HOME}/.oci:/home/plotter/.oci:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+      - /home/plotter/.streamlit:size=8m,uid=10001,gid=10001,mode=0700
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/health', timeout=3).read()"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+volumes:
+  iam-plotter-data:

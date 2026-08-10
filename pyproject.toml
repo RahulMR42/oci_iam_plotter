@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "oci-iam-plotter"
+version = "0.1.0"
+description = "Read-only OCI IAM collection, analysis, visualization, and reporting"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "oci>=2.130.0",
+  "networkx>=3.2",
+  "openai>=1.100.0",
+  "streamlit>=1.43.0",
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.30.0",
+  "openpyxl>=3.1.5",
+  "pillow>=10.0.0",
+  "pyvis>=0.3.2",
+  "reportlab>=4.2.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0", "pypdf>=5.0.0"]
+
+[project.scripts]
+oci-iam-plotter = "oci_iam_plotter.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["oci_iam_plotter*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

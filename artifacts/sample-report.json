@@ -1,0 +1,67 @@
+{
+  "snapshot": {
+    "tenancy_id": "ocid1.tenancy.oc1..sample",
+    "collected_at": "2026-08-04T00:00:00+00:00",
+    "source_hash": "sample"
+  },
+  "inventory": {
+    "tenancy": 1,
+    "user": 1,
+    "group": 1,
+    "policy": 1
+  },
+  "access_analysis": {
+    "user": {
+      "id": "user-1",
+      "name": "alice",
+      "kind": "user",
+      "description": null,
+      "compartment_id": "ocid1.tenancy.oc1..sample",
+      "lifecycle_state": "ACTIVE",
+      "metadata": {}
+    },
+    "groups": [
+      {
+        "id": "group-1",
+        "name": "Auditors",
+        "kind": "group",
+        "description": null,
+        "compartment_id": "ocid1.tenancy.oc1..sample",
+        "lifecycle_state": "ACTIVE",
+        "metadata": {}
+      }
+    ],
+    "applicable_policy_statements": [
+      {
+        "statement_id": "policy-1#0",
+        "principal_type": "group",
+        "principal_name": "Auditors",
+        "verb": "read",
+        "resource_type": "all-resources",
+        "scope": "tenancy",
+        "condition": null,
+        "confidence": "parsed",
+        "original_text": "Allow group Auditors to read all-resources in tenancy",
+        "policy_id": "policy-1",
+        "matched_group_id": "group-1"
+      }
+    ],
+    "implied_permissions": [
+      "read all-resources (tenancy)"
+    ],
+    "confidence": "inferred",
+    "limitations": [
+      "This is a policy-text inference, not OCI's final authorization decision.",
+      "Dynamic groups do not contain users and are not treated as user access.",
+      "Conditions, service-specific permissions, policy inheritance, and runtime context can change effective access."
+    ],
+    "unresolved_ambiguous_statements": []
+  },
+  "duplicates": {
+    "exact_entity_name_candidates": [],
+    "exact_policy_statement_candidates": [],
+    "near_entity_name_candidates": [],
+    "note": "Candidates are not automatic duplicates; OCIDs remain authoritative."
+  },
+  "summary": null
+}

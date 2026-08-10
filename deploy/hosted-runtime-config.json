@@ -1,0 +1,17 @@
+{
+  "environment": {
+    "APP_AUTH_MODE": "no_auth",
+    "AUTH_MODE": "no_auth",
+    "HOSTNAME": "0.0.0.0",
+    "OCI_IAM_PLOTTER_CACHE_DIR": "/tmp/iam-plotter-cache",
+    "OCI_IAM_PLOTTER_HOSTED": "true",
+    "OCI_IAM_PLOTTER_OBJECT_STORAGE_BUCKET": "bucket_iam_plotter",
+    "OCI_IAM_PLOTTER_OBJECT_STORAGE_ENABLED": "true",
+    "OCI_IAM_PLOTTER_HOST": "0.0.0.0",
+    "OCI_IAM_PLOTTER_PASSWORD_SECRET_ID": "ocid1.vaultsecret.oc1.us-chicago-1.amaaaaaafigrwqyayostjzfgie5qtp6ztybaeuofxqhgink3qbsku5wrt3rq"
+  },
+  "secretEnvironment": {
+    "OCI_GENAI_API_KEY": "ocid1.vaultsecret.oc1.us-chicago-1.amaaaaaafigrwqyafylahl5khf6wmvfh3j3bzo7nndxarix4iwypnig4w2gq",
+    "OCI_IAM_PLOTTER_PASSWORD_V2": "ocid1.vaultsecret.oc1.us-chicago-1.amaaaaaafigrwqyayostjzfgie5qtp6ztybaeuofxqhgink3qbsku5wrt3rq"
+  }
+}
