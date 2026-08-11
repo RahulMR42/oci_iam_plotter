@@ -29,6 +29,8 @@ npm run build
 
 The Vite build writes deployable assets to `oci_iam_plotter/static/`. Run it before creating a container image or validating UI changes through the FastAPI server.
 
+The primary navigation highlights Access Map and Reports & Risks. Reports & Risks follows IAM Drift, includes a score-guide popup in Risk Posture, and uses the current snapshot’s active portal-session count beside the release badge. This count is not the collected OCI IAM user count.
+
 ## Containers
 
 ```bash

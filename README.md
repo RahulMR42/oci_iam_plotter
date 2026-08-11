@@ -9,7 +9,8 @@ It never changes OCI IAM resources. OCI remains the authority for effective runt
 - Collect classic IAM and Identity Domains evidence: tenancy metadata, compartment hierarchy, users, groups, memberships, domains, dynamic-group rules, policies, applications, and grants.
 - Explore a focused **Access Map** around one or more subjects, with pan, zoom, layouts, an expandable tree, and PNG/PDF/JSON exports.
 - Review inventory, user access evidence, policy statements, duplicate candidates, and drift between local or durable Object Storage collections.
-- Build inventory or comparison reports for zero, one, or multiple users; download filtered evidence as Excel, CSV, JSON, Markdown and PDF where applicable.
+- Use **Reports & Risks**—the fourth primary tab—to compare one or more users, view rendered HTML reports in the console, and download HTML, Markdown, or PDF.
+- Prioritize tenancy risk posture with explainable policy scores, severity/search filters, standard administrator labels, GenAI summaries, and durable Object Storage archives.
 - Use **Ask IAM** for multi-turn, evidence-first questions. It retrieves the selected snapshot before asking OCI Generative AI for a concise narrative, with a deterministic fallback.
 - Switch tenancies and select durable historical collections from Object Storage.
 
@@ -38,6 +39,8 @@ tenancies/<tenancy-name-and-id>/<collection-date>/snapshot-<hash>.json
 
 The local cache keeps the newest five collections per tenancy for fast use. The sidebar’s **Object Storage collections** picker can activate any archived snapshot without removing the local retention limit. IAM Drift also lists same-tenancy archived collections and reads the selected pair directly from the bucket, so comparisons survive hosted-runtime restarts. Local runs use the configured OCI user principal; OCI Generative AI Hosted Applications use their resource principal with bucket-scoped Object Storage policy.
 
+Each collection also produces a tenancy risk-posture report when Object Storage archiving is available. Reports & Risks shows the newest three reports by default and can browse earlier archived reports. See [Reports & Risks design](docs/reports-and-risks-design.md) for scoring and report logic.
+
 ## Get started
 
 ```bash
@@ -47,7 +50,7 @@ python -m pip install -e '.[test]'
 ./start.sh
 ```
 
-Open `http://127.0.0.1:8501`, sign in, expand the left sidebar if needed, and use **Collect**. The collection dialog accepts either OCI API-signing credentials or security-token authentication. Supplied credential material is removed after the collection run.
+Open `http://127.0.0.1:8501`, sign in, expand the left sidebar if needed, and use **Collect**. The collection dialog accepts either OCI API-signing credentials or security-token authentication. Supplied credential material is removed after the collection run. The release badge at the lower left includes the current in-process signed-in user count; hover it for its description.
 
 ## Documentation
 
@@ -55,6 +58,7 @@ Open `http://127.0.0.1:8501`, sign in, expand the left sidebar if needed, and us
 - [OCI Generative AI hosted deployment](docs/hosted-deployment.md)
 - [Configuration reference](docs/configuration.md)
 - [Architecture and data flow](docs/architecture.md)
+- [Reports & Risks design](docs/reports-and-risks-design.md)
 - [Security and IAM boundaries](docs/security.md)
 - [Application capabilities](SKILLS.md)
 

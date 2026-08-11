@@ -23,3 +23,5 @@
 | `OCI_GENAI_API_KEY_FILE` | `.oci-genai-api-key` | Permission-restricted local key file |
 
 Copy [.env.example](../.env.example) as a configuration reference. The local launcher does not automatically load `.env`.
+
+Object Storage archiving also retains collection risk-posture reports. No configuration is needed for the in-process active-user indicator; it is an application-session count rather than a tenancy IAM-user count.

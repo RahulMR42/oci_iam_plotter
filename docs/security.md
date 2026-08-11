@@ -14,4 +14,8 @@ Snapshots can contain IAM names, OCIDs, policy statements, dynamic rules, and re
 
 Policy parsing and relationship correlation are evidence aids, not proof of effective authorization. OCI authorization can depend on compartment ancestry, policy conditions, domain behavior, service-specific verb expansion, request context, resource state, cross-tenancy controls, and policies unavailable to the collector.
 
+Risk posture is a visible policy-text heuristic, not a compliance verdict. Its scores and reasons are retained in the report evidence; the score guide and [Reports & Risks design](reports-and-risks-design.md) describe the calculation. The standard `Administrators` tenancy-wide grant is excluded only for exact group membership, while all other powerful statements remain reviewable. A Domain administrator label does not create a score exemption.
+
+GenAI summaries are grounded in matching policy evidence and do not alter risk scores, policy matches, or archived IAM data. If OCI Generative AI is unavailable, the application returns a deterministic evidence summary instead.
+
 Dynamic-group matching is especially conservative: a collected rule reference is not proof of live runtime membership. Duplicate findings are candidates only; OCIDs remain authoritative and the tool never merges or deletes entities.
