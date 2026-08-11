@@ -9,7 +9,10 @@ from threading import Lock
 from typing import Any, Callable
 
 from .collector import OCICollector
+from .analysis import find_duplicates, policy_analysis, tenancy_risk_analysis
+from .reporting import report_payload
 from .store import SnapshotStore
+from .summarizer import OCIReasoner
 
 _EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="oci-iam-collector")
 _LOCK = Lock()
@@ -64,6 +67,26 @@ def _collect(cache_dir: Path, collector_factory: Callable[[], OCICollector], sto
                 close()
         store = store or SnapshotStore(cache_dir)
         path = store.save(snapshot)
+        # A collection is the durable point-in-time record.  Persist its
+        # tenancy-wide risk posture alongside the snapshot when Object Storage
+        # is available, without making a GenAI call in the background worker.
+        if store.object_archive:
+            try:
+                analyses = [policy_analysis(snapshot, entity.id)
+                            for entity in snapshot.entities if entity.kind in {"user", "domain_user"}]
+                posture = tenancy_risk_analysis(snapshot, analyses)
+                # Keep generated commentary focused on the users that need
+                # review. The report still contains deterministic evidence for
+                # every collected user.
+                flagged = [analysis for analysis in analyses
+                           if analysis.get("risk", {}).get("level") in {"medium", "high", "critical"}]
+                summaries = [{"user_id": analysis["user"]["id"], **OCIReasoner().summarize(analysis)}
+                             for analysis in flagged]
+                payload = report_payload(snapshot, analyses, find_duplicates(snapshot), summaries, posture)
+                store.object_archive.put_report(snapshot, payload)
+                _log("Tenancy risk posture report archived to OCI Object Storage.")
+            except Exception as exc:
+                _log(f"Risk posture report could not be archived: {exc}", "warning")
     except Exception as exc:  # Web UI must expose errors without killing Streamlit.
         _log(f"Collection failed: {exc}", "error")
         with _LOCK:

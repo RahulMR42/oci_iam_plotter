@@ -42,6 +42,13 @@ class BucketSnapshotRecord:
     source_hash: str | None
 
 
+@dataclass(frozen=True)
+class BucketReportRecord:
+    object_name: str
+    tenancy_id: str
+    created_at: str
+
+
 class ObjectSnapshotArchive:
     """Read/write snapshots using API-key (local) or resource-principal (hosted) auth."""
 
@@ -139,3 +146,36 @@ class ObjectSnapshotArchive:
             return json.loads(response.data.content.decode("utf-8"))
         finally:
             response.data.close()
+
+    def report_object_name(self, snapshot: "Snapshot") -> str:
+        timestamp = _safe_part(datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z").replace(":", "-"), "unknown-date")
+        return f"tenancies/{tenancy_label(snapshot)}/reports/{timestamp}/iam-access-risk-report.json"
+
+    def put_report(self, snapshot: "Snapshot", payload: dict) -> str:
+        """Persist the canonical report JSON; PDF/Markdown are rendered from this evidence."""
+        object_name = self.report_object_name(snapshot)
+        data = json.dumps(payload, indent=2, sort_keys=True).encode("utf-8")
+        self._oci_client().put_object(
+            self._namespace_name(), self.bucket_name, object_name, io.BytesIO(data), content_type="application/json",
+            opc_meta={"tenancy-id": snapshot.tenancy_id, "report-kind": "iam-access-risk",
+                      "created-at": datetime.now(timezone.utc).isoformat(timespec="seconds")},
+        )
+        return object_name
+
+    def list_reports(self, tenancy_id: str, limit: int = 3) -> list[BucketReportRecord]:
+        response = self._oci_client().list_objects(self._namespace_name(), self.bucket_name,
+                                                   prefix="tenancies/", fields="name,timeCreated", limit=250)
+        records: list[BucketReportRecord] = []
+        for item in response.data.objects:
+            if not item.name.endswith("/iam-access-risk-report.json"):
+                continue
+            try:
+                head = self._oci_client().head_object(self._namespace_name(), self.bucket_name, item.name)
+                headers = {key.lower(): value for key, value in head.headers.items()}
+                if headers.get("opc-meta-tenancy-id") != tenancy_id:
+                    continue
+                records.append(BucketReportRecord(item.name, tenancy_id,
+                    headers.get("opc-meta-created-at") or str(item.time_created)))
+            except Exception:
+                continue
+        return sorted(records, key=lambda record: record.created_at, reverse=True)[:limit]

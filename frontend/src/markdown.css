@@ -1,0 +1,44 @@
+.markdown-document {
+  max-height: 680px;
+  overflow: auto;
+  padding: 1.4rem;
+  background: #fff;
+  color: #312d2a;
+  border: 1px solid #d6cec4;
+  border-radius: 12px;
+  line-height: 1.55;
+}
+
+.markdown-document h1,
+.markdown-document h2,
+.markdown-document h3 { color: #17365d; }
+.markdown-document h1 { font-size: 1.75rem; margin-top: 0; }
+.markdown-document h2 { border-bottom: 1px solid #ddd4ca; padding-bottom: .35rem; margin-top: 1.6rem; }
+.markdown-document h3 { margin-top: 1.2rem; }
+.markdown-document p { white-space: pre-wrap; }
+.markdown-document ul { padding-left: 1.3rem; }
+.markdown-document .markdown-table { margin: .8rem 0 1.2rem; max-height: none; }
+.markdown-document .markdown-table th { background: #17365d; color: #fff; }
+.markdown-document .markdown-table td { color: #312d2a; }
+
+.html-report-console {
+  width: 100%;
+  height: 680px;
+  border: 1px solid #d6cec4;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.release-modal {
+  background: #fff !important;
+  color: #312d2a;
+  border-color: #d8d1ca;
+}
+
+.release-modal h2,
+.release-modal h3 { color: #17365d; }
+.release-modal .subtitle { color: #625d58; }
+.release-modal li { color: #312d2a; }
+
+.risk-user { display: inline-flex; flex-direction: column; align-items: flex-start; gap: .35rem; }
+.administrator-badge { display: inline-block; padding: .14rem .42rem; border: 1px solid #c9dff4; border-radius: 4px; background: #eaf4ff; color: #24547a; font-size: .68rem; font-weight: 700; line-height: 1.25; }

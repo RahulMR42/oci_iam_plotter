@@ -20,13 +20,13 @@ from pydantic import BaseModel, Field
 from starlette.middleware.sessions import SessionMiddleware
 
 from .collector import OCICollector
-from .analysis import find_duplicates, parse_policy_statement, policy_analysis
+from .analysis import find_duplicates, parse_policy_statement, policy_analysis, tenancy_risk_analysis
 from .auth import credentials_match
 from .drift import snapshot_drift
 from .graph import build_multi_focus_graph, graph_data
 from .jobs import collection_logs, collection_status, start_collection_job
 from .query import run_iam_agent
-from .reporting import csv_report, markdown_report, pdf_report, report_payload, xlsx_report
+from .reporting import csv_report, html_report, markdown_report, pdf_report, report_payload, xlsx_report
 from .summarizer import OCIReasoner
 from .store import SnapshotStore
 from .settings import Settings
@@ -63,8 +63,9 @@ class InvestigationRequest(BaseModel):
 
 class ReportRequest(BaseModel):
     user_ids: list[str] = Field(default_factory=list, max_length=50)
-    format: Literal["json", "markdown", "csv", "xlsx", "pdf"] = "json"
+    format: Literal["json", "markdown", "html", "csv", "xlsx", "pdf"] = "json"
     include_summary: bool = True
+    archive: bool = True
 
 
 class QuestionRequest(BaseModel):
@@ -583,14 +584,26 @@ def report(request: Request, body: ReportRequest) -> Response:
     require_login(request)
     snapshot = loaded_snapshot(request)
     try:
-        analyses = [policy_analysis(snapshot, user_id) for user_id in body.user_ids]
+        user_ids = body.user_ids or [entity.id for entity in snapshot.entities if entity.kind in {"user", "domain_user"}]
+        analyses = [policy_analysis(snapshot, user_id) for user_id in user_ids]
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     summaries = [OCIReasoner().summarize(item) for item in analyses] if body.include_summary and analyses else []
-    payload = report_payload(snapshot, analyses, find_duplicates(snapshot), summaries)
+    payload = report_payload(snapshot, analyses, find_duplicates(snapshot), summaries,
+                             tenancy_risk_analysis(snapshot, analyses))
+    # The UI renders this evidence-derived Markdown immediately after a build;
+    # the same canonical content is used for the downloadable artifact.
+    payload["markdown"] = markdown_report(payload)
+    payload["html"] = html_report(payload)
+    if body.archive and body.format == "json" and OBJECT_ARCHIVE:
+        try:
+            payload["archive"] = {"object_name": OBJECT_ARCHIVE.put_report(snapshot, payload), "stored": True}
+        except Exception as exc:
+            payload["archive"] = {"stored": False, "warning": f"Report was generated but could not be archived: {exc}"}
     formats = {
         "json": (json.dumps(payload, indent=2), "application/json", "oci-iam-report.json"),
         "markdown": (markdown_report(payload), "text/markdown", "oci-iam-report.md"),
+        "html": (html_report(payload), "text/html", "oci-iam-report.html"),
         "csv": (csv_report(payload), "text/csv", "oci-iam-report.csv"),
     }
     if body.format in formats:
@@ -600,6 +613,58 @@ def report(request: Request, body: ReportRequest) -> Response:
     media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if body.format == "xlsx" else "application/pdf"
     filename = "oci-iam-report.xlsx" if body.format == "xlsx" else "oci-iam-report.pdf"
     return Response(content=content, media_type=media_type, headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@app.get("/api/risk-posture")
+def risk_posture(request: Request) -> dict:
+    """Current full-tenancy posture without GenAI calls or report archival."""
+    require_login(request)
+    snapshot = loaded_snapshot(request)
+    analyses = [policy_analysis(snapshot, entity.id) for entity in snapshot.entities if entity.kind in {"user", "domain_user"}]
+    return tenancy_risk_analysis(snapshot, analyses)
+
+
+@app.get("/api/reports/archive")
+def archived_reports(request: Request, limit: int = 3) -> dict:
+    """Return recent durable risk-posture reports for the active tenancy."""
+    require_login(request)
+    if not OBJECT_ARCHIVE:
+        return {"enabled": False, "records": [], "error": "Object Storage archive is disabled."}
+    try:
+        tenancy_id = selected_snapshot_record(request).tenancy_id
+        records = OBJECT_ARCHIVE.list_reports(tenancy_id, limit=max(1, min(limit, 100)))
+        return {"enabled": True, "records": [{"object_name": item.object_name, "created_at": item.created_at} for item in records]}
+    except Exception as exc:
+        return {"enabled": True, "records": [], "error": f"Unable to list saved reports: {exc}"}
+
+
+@app.get("/api/reports/archive/load")
+def load_archived_report(request: Request, object_name: str) -> dict:
+    require_login(request)
+    if not OBJECT_ARCHIVE:
+        raise HTTPException(503, "Object Storage archive is disabled.")
+    allowed = {item.object_name for item in OBJECT_ARCHIVE.list_reports(selected_snapshot_record(request).tenancy_id, limit=100)}
+    if object_name not in allowed:
+        raise HTTPException(404, "Saved report is not available for the active tenancy.")
+    return OBJECT_ARCHIVE.load(object_name)
+
+
+@app.get("/api/reports/archive/download")
+def download_archived_report(request: Request, object_name: str,
+                             format: Literal["markdown", "pdf"] = "markdown") -> Response:
+    """Render a stored risk-posture evidence payload as a portable artifact."""
+    require_login(request)
+    if not OBJECT_ARCHIVE:
+        raise HTTPException(503, "Object Storage archive is disabled.")
+    allowed = {item.object_name for item in OBJECT_ARCHIVE.list_reports(selected_snapshot_record(request).tenancy_id, limit=100)}
+    if object_name not in allowed:
+        raise HTTPException(404, "Saved report is not available for the active tenancy.")
+    payload = OBJECT_ARCHIVE.load(object_name)
+    if format == "markdown":
+        return Response(content=markdown_report(payload), media_type="text/markdown",
+                        headers={"Content-Disposition": 'attachment; filename="oci-iam-risk-posture.md"'})
+    return Response(content=pdf_report(payload), media_type="application/pdf",
+                    headers={"Content-Disposition": 'attachment; filename="oci-iam-risk-posture.pdf"'})
 
 
 @app.post("/api/ask")

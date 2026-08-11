@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 import csv
+from html import escape as html_escape
 from io import BytesIO, StringIO
 import json
 from pathlib import Path
@@ -17,6 +18,7 @@ def report_payload(
     access: dict | list[dict] | None,
     duplicates: dict,
     summary: dict | list[dict] | None,
+    risk_posture: dict | None = None,
 ) -> dict[str, Any]:
     """Assemble a machine-readable report payload from local analysis outputs."""
     counts: dict[str, int] = {}
@@ -29,7 +31,9 @@ def report_payload(
     summaries = summary if isinstance(summary, list) else ([summary] if summary else [])
     attributed_summaries = []
     for index, item in enumerate(summaries):
-        user = access_analyses[index].get("user", {}) if index < len(access_analyses) else {}
+        user = next((analysis.get("user", {}) for analysis in access_analyses
+                     if analysis.get("user", {}).get("id") == item.get("user_id")), None)
+        user = user or (access_analyses[index].get("user", {}) if index < len(access_analyses) else {})
         attributed_summaries.append({"user_id": user.get("id"), "user_name": user.get("name"), **item})
     return {"snapshot": {"tenancy_id": snapshot.tenancy_id, "collected_at": snapshot.collected_at,
                          "source_hash": snapshot.source_hash, "warnings": snapshot.warnings},
@@ -39,7 +43,7 @@ def report_payload(
             "access_analyses": access_analyses,
             "duplicates": duplicates,
             "summary": attributed_summaries[0] if len(attributed_summaries) == 1 else None,
-            "summaries": attributed_summaries}
+            "summaries": attributed_summaries, "risk_posture": risk_posture or {}}
 
 
 def _access_analyses(payload: dict[str, Any]) -> list[dict[str, Any]]:
@@ -60,6 +64,19 @@ def markdown_report(payload: dict[str, Any]) -> str:
     """Render an audit-oriented Markdown report without credentials or raw SDK data."""
     lines = ["# OCI IAM Plotter report", "", f"- Tenancy: `{payload['snapshot']['tenancy_id']}`", f"- Collected: {payload['snapshot']['collected_at']}", "", "## Entity inventory", ""]
     lines += [f"- {kind}: {count}" for kind, count in sorted(payload["inventory"].items())]
+    risk_posture = payload.get("risk_posture", {})
+    if risk_posture:
+        lines += ["", "## Access risk posture", ""]
+        lines += [f"- {level.title()}: {count}" for level, count in risk_posture.get("distribution", {}).items()]
+        lines += ["", "| User | Risk | Score | Policy-based signals |", "|---|---|---:|---|"]
+        for item in risk_posture.get("flagged_users", []):
+            signals = "; ".join(signal["permission"] for signal in item.get("signals", [])[:3]) or "Review matched policy evidence"
+            lines.append(f"| {_markdown_cell(item['name'])} | {item['risk_level'].title()} | {item['risk_score']} | {_markdown_cell(signals)} |")
+        lines += ["", "### Top risk elements", "", "| User | Risk | Score | Permission | Why it was prioritized |", "|---|---|---:|---|---|"]
+        for item in risk_posture.get("top_risk_elements", [])[:20]:
+            lines.append("| " + " | ".join(_markdown_cell(value) for value in (
+                item["user"], item["level"].title(), item["score"], item["permission"], "; ".join(item.get("reasons", [])))) + " |")
+        lines += ["", risk_posture.get("method", "")]
     lines += ["", "## Relationship inventory", ""]
     lines += [f"- {kind}: {count}" for kind, count in sorted(payload.get("relationships", {}).items())] or ["- None"]
     analyses = _access_analyses(payload)
@@ -81,6 +98,7 @@ def markdown_report(payload: dict[str, Any]) -> str:
                       "| Evidence | Details | Confidence |", "|---|---|---|",
                       f"| User | `{_markdown_cell(user['id'])}` | Direct |",
                       f"| Groups | {_markdown_cell(', '.join(group['name'] for group in access.get('groups', [])) or 'None')} | Direct |",
+                      f"| Administrator role | {_markdown_cell(', '.join(access.get('administrator_roles', [])) or 'None')} | Group membership |",
                       f"| Implied permissions | {_markdown_cell('; '.join(access.get('implied_permissions', [])) or 'None matched')} | Inferred |",
                       f"| Relevant ambiguous statements | {len(access.get('unresolved_ambiguous_statements', []))} | Requires review |",
                       "", "#### Confidence and limitations", ""]
@@ -90,6 +108,36 @@ def markdown_report(payload: dict[str, Any]) -> str:
     duplicates = payload["duplicates"]
     lines += ["", "## Duplicate / overlap candidates", "", f"- Exact entity-name candidates: {len(duplicates['exact_entity_name_candidates'])}", f"- Exact policy-statement candidates: {len(duplicates['exact_policy_statement_candidates'])}", f"- Near-name candidates: {len(duplicates['near_entity_name_candidates'])}", "", "## Next checks", "", "- Validate candidate access with OCI policy evaluation and service-specific controls.", "- Review conditional statements and policies outside the collected scope if needed."]
     return "\n".join(lines) + "\n"
+
+
+def html_report(payload: dict[str, Any]) -> str:
+    """Render the canonical Markdown report as a self-contained HTML document."""
+    markdown = markdown_report(payload)
+    lines, parts, index = markdown.splitlines(), [], 0
+    def cells(line: str) -> list[str]:
+        return [html_escape(cell.strip().replace("\\|", "|")) for cell in line.strip().strip("|").split("|")]
+    while index < len(lines):
+        line = lines[index]
+        if not line.strip(): index += 1; continue
+        if line.startswith("### "): parts.append(f"<h3>{html_escape(line[4:])}</h3>"); index += 1; continue
+        if line.startswith("## "): parts.append(f"<h2>{html_escape(line[3:])}</h2>"); index += 1; continue
+        if line.startswith("# "): parts.append(f"<h1>{html_escape(line[2:])}</h1>"); index += 1; continue
+        if line.startswith("- "):
+            values = []
+            while index < len(lines) and lines[index].startswith("- "):
+                values.append(f"<li>{html_escape(lines[index][2:])}</li>"); index += 1
+            parts.append("<ul>" + "".join(values) + "</ul>"); continue
+        if "|" in line and index + 1 < len(lines) and lines[index + 1].replace("|", "").replace("-", "").replace(":", "").strip() == "":
+            headers = cells(line); index += 2; rows = []
+            while index < len(lines) and "|" in lines[index] and lines[index].strip():
+                rows.append("<tr>" + "".join(f"<td>{cell}</td>" for cell in cells(lines[index])) + "</tr>"); index += 1
+            parts.append("<table><thead><tr>" + "".join(f"<th>{cell}</th>" for cell in headers) + "</tr></thead><tbody>" + "".join(rows) + "</tbody></table>"); continue
+        paragraph = []
+        while index < len(lines) and lines[index].strip() and not lines[index].startswith(("#", "- ")):
+            paragraph.append(lines[index]); index += 1
+        parts.append(f"<p>{html_escape(' '.join(paragraph))}</p>")
+    style = "body{font:15px/1.55 Inter,Arial,sans-serif;color:#27221e;max-width:1100px;margin:32px auto;padding:0 24px}h1,h2,h3{color:#17365d}h2{border-bottom:1px solid #ddd;padding-bottom:6px;margin-top:32px}table{border-collapse:collapse;width:100%;margin:14px 0}th{background:#17365d;color:#fff}th,td{padding:8px;border:1px solid #cfc8c0;text-align:left;vertical-align:top}tr:nth-child(even){background:#f7f5f2}"
+    return f"<!doctype html><html><head><meta charset=\"utf-8\"><title>OCI IAM Plotter report</title><style>{style}</style></head><body>{''.join(parts)}</body></html>"
 
 
 def csv_report(payload: dict[str, Any]) -> str:
@@ -109,6 +157,8 @@ def csv_report(payload: dict[str, Any]) -> str:
             writer.writerow(["user_access", "group", group["name"], group["id"], "direct"])
         for permission in access.get("implied_permissions", []):
             writer.writerow(["user_access", "implied_permission", access["user"]["name"], permission, "inferred"])
+        risk = access.get("risk", {})
+        writer.writerow(["user_access", "risk_level", access["user"]["name"], risk.get("level", "low"), "heuristic"])
     return output.getvalue()
 
 
@@ -236,7 +286,26 @@ def pdf_report(payload: dict[str, Any]) -> bytes:
     inventory_rows = [["Entity type", "Count"], *[[key.replace("_", " "), value]
                                                     for key, value in sorted(payload.get("inventory", {}).items())]]
     story += [table(inventory_rows, [125 * mm, 45 * mm]),
-              Paragraph("User access comparison", styles["Section"])]
+              Paragraph("Access risk posture", styles["Section"])]
+    risk_posture = payload.get("risk_posture", {})
+    if risk_posture:
+        risk_rows = [["Risk level", "Users"], *[[level.title(), count] for level, count in risk_posture.get("distribution", {}).items()]]
+        story += [table(risk_rows, [125 * mm, 45 * mm]),
+                  Paragraph(str(risk_posture.get("method", "")), styles["BodyText"])]
+        flagged_rows = [["User", "Risk", "Score", "Signals"]]
+        for item in risk_posture.get("flagged_users", []):
+            flagged_rows.append([item["name"], item["risk_level"].title(), item["risk_score"],
+                                 "; ".join(signal["permission"] for signal in item.get("signals", [])[:3])])
+        if len(flagged_rows) > 1:
+            story += [Paragraph("Prioritized review", styles["Subsection"]), table(flagged_rows, [36 * mm, 24 * mm, 18 * mm, 92 * mm])]
+        top_rows = [["User", "Risk", "Score", "Permission", "Why prioritized"]]
+        for item in risk_posture.get("top_risk_elements", [])[:20]:
+            top_rows.append([item["user"], item["level"].title(), item["score"], item["permission"],
+                             "; ".join(item.get("reasons", []))])
+        if len(top_rows) > 1:
+            story += [Paragraph("Top risk elements", styles["Subsection"]),
+                      table(top_rows, [28 * mm, 18 * mm, 14 * mm, 42 * mm, 68 * mm])]
+    story.append(Paragraph("User access comparison", styles["Section"]))
     analyses = _access_analyses(payload)
     comparison = [["User", "Groups", "Policies", "Permissions", "Ambiguous", "Confidence"]]
     for access in analyses:
@@ -257,6 +326,7 @@ def pdf_report(payload: dict[str, Any]) -> bytes:
             ["Evidence", "Details", "Confidence"],
             ["User", user["id"], "Direct"],
             ["Groups", ", ".join(item["name"] for item in access.get("groups", [])) or "None", "Direct"],
+            ["Risk posture", f"{access.get('risk', {}).get('level', 'low').title()} ({access.get('risk', {}).get('score', 0)})", "Heuristic"],
             ["Implied permissions", "; ".join(access.get("implied_permissions", [])) or "None matched", "Inferred"],
             ["Relevant ambiguities", len(access.get("unresolved_ambiguous_statements", [])), "Requires review"],
         ]
